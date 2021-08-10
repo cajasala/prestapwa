@@ -4,8 +4,10 @@ import 'package:after_layout/after_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:platform_detect/decorator.dart';
 import 'package:platform_detect/platform_detect.dart';
-import 'package:prestapwa/installed.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import "package:universal_html/js.dart" as js;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 void main() {
   decorateRootNodeWithPlatformClasses();
@@ -59,26 +61,91 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage>
     with AfterLayoutMixin<MyHomePage> {
+  bool vlEsperar = true;
+
   @override
   void initState() {
     super.initState();
-    _launchURL;
+    if (kIsWeb) {
+      WidgetsBinding.instance!.addPostFrameCallback((_) async {
+        //final _prefs = await SharedPreferences.getInstance();
+        //final _isWebDialogShownKey = "is-web-dialog-shown";
+        //final _isWebDialogShown = _prefs.getBool(_isWebDialogShownKey) ?? false;
+        //if (!_isWebDialogShown) {
+        final bool isDeferredNotNull =
+            js.context.callMethod("isDeferredNotNull") as bool;
+
+        if (isDeferredNotNull) {
+          debugPrint(">>> Add to HomeScreen prompt is ready.");
+          await showAddHomePageDialog(context);
+
+          // _prefs.setBool(_isWebDialogShownKey, true);
+        } else {
+          debugPrint(">>> Add to HomeScreen prompt is not ready yet.");
+          vlEsperar = false;
+        }
+        //}
+      });
+    }
+  }
+
+  Future<bool?> showAddHomePageDialog(BuildContext context) async {
+    return showDialog<bool>(
+      barrierDismissible: false,
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                    child: Icon(
+                  Icons.add_circle,
+                  size: 70,
+                  color: Theme.of(context).primaryColor,
+                )),
+                SizedBox(height: 20.0),
+                Text(
+                  'Instalar aplicación en tu celular?',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 20.0),
+                Text(
+                  'Tendras un acceso directo a nuestra tienda',
+                  style: TextStyle(fontSize: 16),
+                ),
+                SizedBox(height: 20.0),
+                Row(
+                  children: [
+                    ElevatedButton(
+                        onPressed: () {
+                          js.context.callMethod("presentAddToHome");
+                          Navigator.pop(context, false);
+                        },
+                        child: Text("Si!")),
+                  ],
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: RaisedButton(
-        onPressed: () {
-          //_launchURL();
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => Installed()),
-          );
-        },
-        child: Text('Inicio Surtidora' + browser.name),
-      ),
-    );
+        body: Column(
+      children: [
+        Text("Iniciando aplicación..."),
+      ],
+    ));
   }
 
   void _launchURL() async =>
@@ -89,13 +156,9 @@ class _MyHomePageState extends State<MyHomePage>
               webOnlyWindowName: "_self")
           : throw 'Could not launch https://surtidoradeaves.tiendishops.com/';
 
-  void isWeb() {
-    if (!browser.isChrome &&
-        !browser.isFirefox &&
-        !browser.isInternetExplorer &&
-        !browser.isSafari) {
-      //window.navigator.
-      //_launchURL();
+  void isWeb() async {
+    if (vlEsperar == false) {
+      _launchURL();
     }
   }
 
